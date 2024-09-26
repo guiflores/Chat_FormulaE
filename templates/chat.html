@@ -5,25 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat ao Vivo</title>
     <link rel="stylesheet" href="/static/style.css">
-
+    <style>
+        #chat {
+            width: 100%;
+        }
+        #messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        input, button {
+            padding: 10px;
+        }
+    </style>
 </head>
 <body>
-    <div id="header">
-        <a href="#" style="text-decoration: none; color: black;">Loja (em desenvolvimento)</a>
-        <h2>Bem-vindo, {{ current_user.username }}</h2>
-    </div>
-    <div class="container">
-        <div id="chat">
-            <div id="messages"></div>
-            <input id="msg" type="text" placeholder="Digite sua mensagem..." onkeydown="checkEnter(event)" disabled />
-            <button id="sendButton" onclick="sendMessage()" disabled>Enviar</button>
-        </div>
-        <div id="video">
-            <iframe id="livestream" width="100%" height="300px" 
-                src="https://www.youtube.com/embed/live_stream?channel=ID_DO_YOUTUBE" 
-                frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
-            </iframe>
-        </div>
+    <h2>Bem-vindo ao Chat ao Vivo, {{ nome }}!</h2>
+    <div id="chat">
+        <div id="messages"></div>
+        <input id="msg" type="text" placeholder="Digite sua mensagem..." onkeydown="checkEnter(event)" />
+        <button id="sendButton" onclick="sendMessage()">Enviar</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
@@ -31,53 +34,31 @@
         var socket = io.connect('http://' + document.domain + ':' + location.port);
         var room = 'chatroom';
 
-        socket.emit('join', {username: username, email: email, room: room});
+        // Emitir evento de join ao entrar no chat
+        socket.emit('join', {room: room});
 
-        document.getElementById('msg').disabled = false;
-        document.getElementById('sendButton').disabled = false;
-
+        // Receber mensagens do servidor e exibir
         socket.on('message', function(data) {
             var msg = document.createElement('p');
             msg.innerText = data.msg;
             document.getElementById('messages').appendChild(msg);
         });
 
-        var canSend = true;
-        var delayTime = 5000;
-
+        // Função para enviar mensagem
         function sendMessage() {
-            if (canSend) {
-                var msgInput = document.getElementById('msg');
-                var msg = msgInput.value;
-                msgInput.value = '';
+            var msgInput = document.getElementById('msg');
+            var msg = msgInput.value;
+            msgInput.value = '';
 
-                socket.emit('message', {username: username, msg: msg, room: room});
-
-                canSend = false;
-                document.getElementById('msg').disabled = true;
-                document.getElementById('sendButton').disabled = true;
-
-                setTimeout(function() {
-                    canSend = true;
-                    document.getElementById('msg').disabled = false;
-                    document.getElementById('sendButton').disabled = false;
-                }, delayTime);
-            } else {
-                alert('Por favor, aguarde 5 segundos antes de enviar outra mensagem.');
-            }
+            socket.emit('message', {msg: msg, room: room});
         }
 
+        // Função para enviar mensagem com Enter
         function checkEnter(event) {
             if (event.keyCode === 13) {
                 sendMessage();
             }
         }
-
-        var watchTime = 0;
-        setInterval(function() {
-            watchTime += 10; 
-            socket.emit('watchTime', {username: username, email: email, time: watchTime});
-        }, 10000); 
     </script>
 </body>
 </html>
