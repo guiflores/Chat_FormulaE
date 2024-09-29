@@ -1,14 +1,12 @@
-from flask import Flask, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session
 from flask_socketio import SocketIO, join_room
-from flask_cors import CORS
 import csv
 import os
 import bcrypt
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, cors_allowed_origins="*")
-CORS(app)
+socketio = SocketIO(app)
 
 # Arquivo CSV para registrar os usuários e senhas
 USERS_FILE = 'usuarios_senhas.csv'
@@ -32,33 +30,43 @@ def salvar_usuario(nome, senha_hash):
         writer = csv.writer(file)
         writer.writerow([nome, senha_hash])
 
-# Rota de login via API
-@app.route('/login', methods=['POST'])
+# Rota para a página de login
+@app.route('/', methods=['GET', 'POST'])
 def login():
-    data = request.json
-    nome = data['nome']
-    senha = data['senha']
+    if request.method == 'POST':
+        nome = request.form['nome']
+        senha = request.form['senha']
 
-    usuarios = carregar_usuarios()
+        # Carregar usuários existentes
+        usuarios = carregar_usuarios()
 
-    if nome in usuarios:
-        senha_hash = usuarios[nome].encode('utf-8')
-        if bcrypt.checkpw(senha.encode('utf-8'), senha_hash):
-            session['nome'] = nome
-            return jsonify({'status': 'success', 'nome': nome}), 200
+        # Verificar se o usuário já existe
+        if nome in usuarios:
+            senha_hash = usuarios[nome].encode('utf-8')
+            if bcrypt.checkpw(senha.encode('utf-8'), senha_hash):
+                session['nome'] = nome
+                return redirect(url_for('chat'))
+            else:
+                return "Senha incorreta!", 401
         else:
-            return jsonify({'status': 'failed', 'message': 'Senha incorreta!'}), 401
-    else:
-        # Se o usuário for novo, cadastrar e salvar a senha hashada
-        senha_hash = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
-        salvar_usuario(nome, senha_hash.decode('utf-8'))
-        session['nome'] = nome
-        return jsonify({'status': 'success', 'nome': nome}), 200
+            # Se o usuário for novo, cadastrar e salvar a senha hashada
+            senha_hash = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
+            salvar_usuario(nome, senha_hash.decode('utf-8'))
+            session['nome'] = nome
+            return redirect(url_for('chat'))
+    return render_template('login.html')
+
+# Rota para a página de chat
+@app.route('/chat')
+def chat():
+    if 'nome' not in session:
+        return redirect(url_for('login'))
+    return render_template('chat.html', nome=session['nome'])
 
 # Evento de conexão ao socket
 @socketio.on('join')
 def handle_join(data):
-    nome = data['nome']
+    nome = session.get('nome')
     room = data['room']
     join_room(room)
     socketio.emit('message', {'msg': f"{nome} entrou no chat!"}, room=room)
@@ -67,7 +75,7 @@ def handle_join(data):
 @socketio.on('message')
 def handle_message(data):
     room = data['room']
-    nome = data['nome']
+    nome = session.get('nome')
     socketio.emit('message', {'msg': f"{nome}: {data['msg']}"}, room=room)
 
 if __name__ == '__main__':
