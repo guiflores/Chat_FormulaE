@@ -28,5 +28,5 @@ pip install Flask Flask-SocketIO bcrypt
 ```
 
 ## Segurança
--As senhas são armazenadas de forma segura utilizando o bcrypt.
+-As senhas são armazenadas de forma segura utilizando o bcrypt. 
 -As sessões de usuário são protegidas usando uma chave secreta definida no SECRET_KEY da aplicação Flask.
